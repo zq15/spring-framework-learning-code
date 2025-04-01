@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 测试客户端</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message-container {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .message {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .sent {
+            background-color: #e2f0fb;
+            text-align: right;
+        }
+        .received {
+            background-color: #e8f5e9;
+        }
+        .system {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket 测试客户端</h1>
+    
+    <div class="container">
+        <div id="status" class="status disconnected">未连接</div>
+        
+        <div class="controls">
+            <input type="text" id="tokenInput" placeholder="输入access_token...">
+            <button id="connect">连接</button>
+            <button id="disconnect" disabled>断开连接</button>
+        </div>
+        
+        <div id="messages" class="message-container"></div>
+        
+        <div class="controls">
+            <input type="text" id="messageInput" placeholder="输入消息..." disabled>
+            <button id="send" disabled>发送</button>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        const statusElement = document.getElementById('status');
+        const messagesElement = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const tokenInput = document.getElementById('tokenInput');
+        const connectButton = document.getElementById('connect');
+        const disconnectButton = document.getElementById('disconnect');
+        const sendButton = document.getElementById('send');
+
+        // 添加消息到消息容器
+        function addMessage(message, type) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', type);
+            messageElement.textContent = message;
+            messagesElement.appendChild(messageElement);
+            messagesElement.scrollTop = messagesElement.scrollHeight;
+        }
+
+        // 设置连接状态
+        function setConnectionStatus(connected) {
+            if (connected) {
+                statusElement.textContent = '已连接';
+                statusElement.className = 'status connected';
+                connectButton.disabled = true;
+                disconnectButton.disabled = false;
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+            } else {
+                statusElement.textContent = '未连接';
+                statusElement.className = 'status disconnected';
+                connectButton.disabled = false;
+                disconnectButton.disabled = true;
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+            }
+        }
+
+        // 连接WebSocket
+        connectButton.addEventListener('click', function() {
+            // 获取当前页面的主机和端口
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const token = tokenInput.value.trim();
+            
+            // 创建WebSocket连接，添加access_token参数
+            const wsUrl = token ? 
+                `${protocol}//${host}/?accessToken=${encodeURIComponent(token)}` : 
+                `${protocol}//${host}/`;
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(event) {
+                setConnectionStatus(true);
+                addMessage('连接已建立', 'system');
+            };
+            
+            socket.onmessage = function(event) {
+                addMessage(`收到: ${event.data}`, 'received');
+            };
+            
+            socket.onclose = function(event) {
+                setConnectionStatus(false);
+                addMessage(`连接已关闭: 代码=${event.code}, 原因=${event.reason || '无'}`, 'system');
+            };
+            
+            socket.onerror = function(event) {
+                setConnectionStatus(false);
+                addMessage('连接发生错误', 'system');
+                console.error('WebSocket 错误:', event);
+            };
+        });
+
+        // 断开连接
+        disconnectButton.addEventListener('click', function() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        });
+
+        // 发送消息
+        sendButton.addEventListener('click', function() {
+            sendMessage();
+        });
+
+        // 按Enter键发送消息
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 发送消息函数
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(message);
+                addMessage(`发送: ${message}`, 'sent');
+                messageInput.value = '';
+            }
+        }
+    </script>
+</body>
+</html> 
